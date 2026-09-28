@@ -4,29 +4,61 @@ import {
   Clock,
   Video,
   Users,
-  Sparkles,
-  ArrowRight,
   ExternalLink,
   Plus,
   Play,
-  CheckCircle2
+  Copy,
+  Check,
+  MoreVertical,
+  Search,
+  X
 } from 'lucide-react';
 import { Meeting } from '../../types/index.ts';
 
 interface UpcomingMeetingsListProps {
   meetings: Meeting[];
   onOpenScheduleModal: () => void;
+  onStartMeeting?: (meeting: Meeting) => void;
+  onViewAll?: () => void;
+  onOpenMeetingDetail?: (meeting: Meeting) => void;
 }
 
 export const UpcomingMeetingsList: React.FC<UpcomingMeetingsListProps> = ({
   meetings,
-  onOpenScheduleModal
+  onOpenScheduleModal,
+  onStartMeeting,
+  onViewAll,
+  onOpenMeetingDetail
 }) => {
   const [filter, setFilter] = useState<'all' | 'today' | 'upcoming'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const now = Date.now();
 
+  const getOrganizerName = (m: Meeting): string => {
+    const orgPart = m.participants?.find(p => p.role === 'organizer' || p.userId === m.organizerId);
+    if (orgPart?.name) return orgPart.name;
+    if (m.organizerId === 'admin-organizer') return 'Dr. Priya Sharma';
+    if (m.organizerId === 'prof-ananya') return 'Prof. Ananya Sen';
+    if (m.organizerId === 'demo-member-uid') return 'Rahul Verma';
+    return 'Workspace Organizer';
+  };
+
   const filteredMeetings = meetings.filter(m => {
+    // Search query filter: check title and organizer name
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const titleMatch = m.title.toLowerCase().includes(q);
+      const orgName = getOrganizerName(m).toLowerCase();
+      const organizerMatch = orgName.includes(q);
+      const agendaMatch = m.agenda?.toLowerCase().includes(q) || false;
+
+      if (!titleMatch && !organizerMatch && !agendaMatch) {
+        return false;
+      }
+    }
+
     const meetTime = new Date(m.scheduledAt).getTime();
     if (filter === 'today') {
       const today = new Date();
@@ -41,73 +73,44 @@ export const UpcomingMeetingsList: React.FC<UpcomingMeetingsListProps> = ({
     return true;
   });
 
-  const formatScheduledTime = (iso: string) => {
-    const d = new Date(iso);
-    const diffHours = (d.getTime() - now) / (1000 * 60 * 60);
-
-    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-
-    let relativeBadge = '';
-    let badgeColor = 'bg-slate-800 text-slate-300';
-
-    if (diffHours < 0 && diffHours > -2) {
-      relativeBadge = 'Happening Now';
-      badgeColor = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse';
-    } else if (diffHours >= 0 && diffHours <= 3) {
-      relativeBadge = `In ${Math.ceil(diffHours)}h`;
-      badgeColor = 'bg-amber-500/20 text-amber-300 border border-amber-500/30';
-    } else if (diffHours > 3 && diffHours <= 24) {
-      relativeBadge = 'Tomorrow';
-      badgeColor = 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30';
-    } else {
-      relativeBadge = dateStr;
-      badgeColor = 'bg-slate-800 text-slate-400 border border-slate-700';
-    }
-
-    return { timeStr, dateStr, relativeBadge, badgeColor };
+  const copyMeetingLink = (m: Meeting) => {
+    const link = `${window.location.origin}/meet/${m.id}`;
+    navigator.clipboard.writeText(link);
+    setCopiedId(m.id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
-    <div className="p-6 rounded-3xl bg-slate-900/70 backdrop-blur-md border border-slate-800/80 shadow-xl space-y-4">
-      {/* Header with Title and "Schedule New Meeting" CTA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
-            <Calendar className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <span>Upcoming Meetings</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300">
-                {meetings.filter(m => m.status === 'scheduled').length} Scheduled
-              </span>
-            </h3>
-            <p className="text-[11px] text-slate-400">Scoped to your active organization</p>
-          </div>
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* Header */}
+      <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50/50">
+        <div>
+          <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <Video className="w-4 h-4 text-slate-700" />
+            Scheduled Conferences &amp; Meetings
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Join active video rooms or manage scheduled organizer sessions
+          </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Filter toggle */}
-          <div className="flex p-0.5 bg-slate-950/70 rounded-xl border border-slate-800 text-xs">
+        {/* Filter Controls & Schedule Button */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200">
             <button
               type="button"
               onClick={() => setFilter('all')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                filter === 'all'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                filter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              All
+              All ({meetings.length})
             </button>
             <button
               type="button"
               onClick={() => setFilter('today')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                filter === 'today'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                filter === 'today' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Today
@@ -115,21 +118,28 @@ export const UpcomingMeetingsList: React.FC<UpcomingMeetingsListProps> = ({
             <button
               type="button"
               onClick={() => setFilter('upcoming')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                filter === 'upcoming'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                filter === 'upcoming' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Upcoming
             </button>
           </div>
 
-          {/* Schedule button */}
+          {onViewAll && (
+            <button
+              type="button"
+              onClick={onViewAll}
+              className="text-xs font-semibold text-slate-600 hover:text-slate-900 hover:underline px-2 py-1"
+            >
+              View All →
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onOpenScheduleModal}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FFE900] hover:bg-[#F5DE00] text-slate-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Schedule</span>
@@ -137,92 +147,174 @@ export const UpcomingMeetingsList: React.FC<UpcomingMeetingsListProps> = ({
         </div>
       </div>
 
-      {/* Meetings List */}
-      <div className="space-y-3">
-        {filteredMeetings.length === 0 ? (
-          <div className="text-center py-10 rounded-2xl bg-slate-950/40 border border-dashed border-slate-800 space-y-3">
-            <Calendar className="w-8 h-8 mx-auto text-slate-600" />
-            <div className="space-y-1">
-              <h4 className="text-xs font-semibold text-slate-300">No scheduled meetings</h4>
-              <p className="text-[11px] text-slate-500">Plan a new sync and MidMeetMind will record, transcribe and summarize it.</p>
-            </div>
+      {/* Search Bar for Dashboard Meetings Section */}
+      <div className="px-5 py-3 border-b border-slate-100 bg-white flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-md">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <Search className="w-3.5 h-3.5" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search meetings by title or organizer name..."
+            className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-slate-400 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition-all"
+          />
+          {searchQuery && (
             <button
               type="button"
-              onClick={onOpenScheduleModal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium cursor-pointer"
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+              title="Clear search"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Schedule First Meeting</span>
+              <X className="w-3.5 h-3.5" />
             </button>
+          )}
+        </div>
+
+        {searchQuery && (
+          <div className="text-xs text-slate-500 flex items-center gap-2">
+            <span>Found <strong>{filteredMeetings.length}</strong> matching {filteredMeetings.length === 1 ? 'meeting' : 'meetings'}</span>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Meetings List */}
+      <div className="divide-y divide-slate-100">
+        {filteredMeetings.length === 0 ? (
+          <div className="py-12 px-6 text-center">
+            <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+              <Calendar className="w-6 h-6" />
+            </div>
+            <h3 className="text-sm font-semibold text-slate-900">
+              {searchQuery ? `No meetings match "${searchQuery}"` : 'No meetings found'}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+              {searchQuery
+                ? 'Try searching with a different meeting title or organizer name.'
+                : 'There are no upcoming meetings scheduled under this filter. You can schedule one now.'}
+            </p>
+            <div className="flex items-center justify-center gap-2 mt-4">
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="px-3.5 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors"
+                >
+                  Clear Search
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onOpenScheduleModal}
+                className="px-4 py-2 rounded-lg bg-[#FFE900] text-slate-950 font-bold text-xs hover:bg-[#F5DE00] transition-colors"
+              >
+                + Schedule a Meeting
+              </button>
+            </div>
           </div>
         ) : (
           filteredMeetings.map((meeting) => {
-            const timeInfo = formatScheduledTime(meeting.scheduledAt);
-            const isCompleted = meeting.status === 'completed';
+            const dateObj = new Date(meeting.scheduledAt);
+            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateStr = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+            const organizerName = getOrganizerName(meeting);
+            const isLive = meeting.status === 'in_progress';
 
             return (
               <div
                 key={meeting.id}
-                className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80 hover:border-slate-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                className="p-4 sm:p-5 hover:bg-slate-50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
               >
-                {/* Left: Meeting Info */}
-                <div className="space-y-1.5 flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${timeInfo.badgeColor}`}>
-                      {timeInfo.relativeBadge}
+                {/* Time & Details */}
+                <div className="flex items-start gap-4">
+                  {/* Date badge */}
+                  <div className="w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center text-center shrink-0">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                      {dateObj.toLocaleDateString([], { month: 'short' })}
                     </span>
-                    <span className="text-xs text-slate-400 font-mono">
-                      {timeInfo.dateStr} at {timeInfo.timeStr}
+                    <span className="text-lg font-black text-slate-900 leading-tight">
+                      {dateObj.getDate()}
                     </span>
-                    {isCompleted && (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400">
-                        Completed
-                      </span>
-                    )}
                   </div>
 
-                  <h4 className="text-sm font-semibold text-white tracking-tight leading-snug">
-                    {meeting.title}
-                  </h4>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3
+                        onClick={() => onOpenMeetingDetail && onOpenMeetingDetail(meeting)}
+                        className="text-sm font-bold text-slate-900 hover:text-blue-600 transition-colors cursor-pointer"
+                        title="Click to view meeting details & agenda"
+                      >
+                        {meeting.title}
+                      </h3>
+                      {isLive && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#FFE900] text-slate-950">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping"></span>
+                          IN PROGRESS
+                        </span>
+                      )}
+                    </div>
 
-                  {meeting.agenda && (
-                    <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                      {meeting.agenda}
-                    </p>
-                  )}
-
-                  {/* Attendees & Recording Indicator */}
-                  <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-400">
-                    <span className="inline-flex items-center gap-1">
-                      <Users className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>{meeting.participants?.length || 1} Participants</span>
-                    </span>
-
-                    {meeting.recordingUrl && (
-                      <span className="inline-flex items-center gap-1 text-emerald-400">
-                        <Video className="w-3.5 h-3.5" />
-                        <span>Recording Attached</span>
+                    {/* Metadata line with organizer name and typographic separators */}
+                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 flex-wrap">
+                      <span className="font-semibold text-slate-700">{timeStr}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{dateStr}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="text-slate-600 font-medium">
+                        Organizer: <strong className="text-slate-800 font-semibold">{organizerName}</strong>
                       </span>
+                      <span aria-hidden="true">·</span>
+                      <span className="font-mono text-[11px] text-slate-400">ID: {meeting.id.substring(0, 10)}</span>
+                    </div>
+
+                    {meeting.agenda && (
+                      <p className="text-xs text-slate-600 mt-1.5 line-clamp-1">
+                        {meeting.agenda}
+                      </p>
                     )}
                   </div>
                 </div>
 
-                {/* Right: Actions */}
-                <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-                  {!isCompleted ? (
-                    <button
-                      type="button"
-                      className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Play className="w-3 h-3 fill-current" />
-                      <span>Join / Start</span>
-                    </button>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium border border-slate-700">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Summary Ready</span>
-                    </span>
-                  )}
+                {/* Actions: Details + Start / Join + Copy Link */}
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  <button
+                    type="button"
+                    onClick={() => onOpenMeetingDetail && onOpenMeetingDetail(meeting)}
+                    className="px-2.5 py-2 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                    title="View details, agenda, and participants"
+                  >
+                    Details
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => copyMeetingLink(meeting)}
+                    className="p-2 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                    title="Copy Meeting Link"
+                  >
+                    {copiedId === meeting.id ? (
+                      <Check className="w-4 h-4 text-emerald-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onStartMeeting && onStartMeeting(meeting)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FFE900] hover:bg-[#F5DE00] text-slate-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-slate-950" />
+                    <span>{isLive ? 'Join Meeting' : 'Start Room'}</span>
+                  </button>
                 </div>
               </div>
             );

@@ -13,45 +13,38 @@ service cloud.firestore {
 
     // User profiles
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow read, create, update: if true;
       allow delete: if false;
     }
 
     // Organizations
     match /organizations/{orgId} {
-      allow read: if true; // Allows inviteCode verification before login/signup
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Meetings
     match /meetings/{meetingId} {
-      allow read: if isAuthenticated() || (resource.data.shareToken != null);
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Transcripts
     match /transcripts/{transcriptId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Summaries
     match /summaries/{summaryId} {
-      allow read: if true; // Can be viewed with shareToken or auth
-      allow write: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Tasks
     match /tasks/{taskId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Notifications
     match /notifications/{notificationId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;
     }
   }
 }

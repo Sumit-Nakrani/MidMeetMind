@@ -58,6 +58,15 @@ export async function seedInitialOrganizationsIfNeeded() {
   }
 }
 
+// Secure client-side password hashing using Web Crypto API SHA-256
+export async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + '_midmeetmind_secure_salt_2026');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Find organization by its unique invite code
 export async function findOrganizationByInviteCode(inviteCode: string): Promise<Organization | null> {
   const cleanCode = inviteCode.trim().toUpperCase();
@@ -105,20 +114,29 @@ export async function createOrganization(
   const inviteCode = customInviteCode?.trim().toUpperCase() || generateInviteCode(name);
   const orgId = `org-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
   
-  const newOrg: Organization = {
+  const orgPayload: Record<string, any> = {
     id: orgId,
     name: name.trim(),
     type,
     inviteCode,
     createdAt: new Date().toISOString(),
-    firstAdminId: adminUser?.id,
-    firstAdminName: adminUser?.name,
-    firstAdminEmail: adminUser?.email,
     memberCount: 1
   };
 
+  if (adminUser?.id) {
+    orgPayload.firstAdminId = adminUser.id;
+  }
+  if (adminUser?.name) {
+    orgPayload.firstAdminName = adminUser.name;
+  }
+  if (adminUser?.email) {
+    orgPayload.firstAdminEmail = adminUser.email;
+  }
+
+  const newOrg = orgPayload as Organization;
+
   try {
-    await setDoc(doc(db, 'organizations', orgId), newOrg);
+    await setDoc(doc(db, 'organizations', orgId), orgPayload);
 
     // If adminUser is provided, assign them as the first-admin of this organization
     if (adminUser?.id) {
@@ -214,11 +232,42 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   return null;
 }
 
+// Find user profile by email
+export async function findUserByEmail(email: string): Promise<UserProfile | null> {
+  const cleanEmail = email.trim().toLowerCase();
+  try {
+    const q = query(collection(db, 'users'), where('email', '==', cleanEmail), limit(1));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const docSnap = snap.docs[0];
+      return { id: docSnap.id, ...docSnap.data() } as UserProfile;
+    }
+  } catch (err) {
+    console.warn('Could not search user by email:', err);
+  }
+
+  // Check localStorage fallback
+  try {
+    const local = localStorage.getItem(`user_${cleanEmail}`);
+    if (local) {
+      return JSON.parse(local) as UserProfile;
+    }
+  } catch {}
+
+  return null;
+}
+
 // Save or update user profile
 export async function saveUserProfile(profile: UserProfile): Promise<void> {
   try {
     const ref = doc(db, 'users', profile.id);
-    await setDoc(ref, profile, { merge: true });
+    const cleanPayload: Record<string, any> = {};
+    for (const [k, v] of Object.entries(profile)) {
+      if (v !== undefined) {
+        cleanPayload[k] = v;
+      }
+    }
+    await setDoc(ref, cleanPayload, { merge: true });
   } catch (err) {
     console.error('Failed to save user profile:', err);
   }

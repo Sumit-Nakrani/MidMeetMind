@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext.tsx';
 import {
-  BrainCircuit,
+  Video,
   Calendar,
   ListTodo,
-  Sparkles,
   Plus,
   Building2,
   GraduationCap,
@@ -14,13 +13,19 @@ import {
   Check,
   Bell,
   LogOut,
-  ShieldCheck,
+  Play,
+  Share2,
+  ExternalLink,
+  ChevronRight,
   Clock,
-  ArrowRight,
-  TrendingUp,
-  FileCheck2,
+  ShieldCheck,
+  Search,
+  FileText,
+  UserCheck,
   CheckCircle2,
-  FolderOpen
+  Sparkles,
+  Mic,
+  Upload
 } from 'lucide-react';
 import { Meeting, Task, Summary } from '../../types/index.ts';
 import {
@@ -29,11 +34,19 @@ import {
   fetchRecentSummaries,
   seedInitialMeetingsIfNeeded
 } from '../../lib/meetingService.ts';
+import { saveUserProfile } from '../../lib/authService.ts';
 import { UpcomingMeetingsList } from './UpcomingMeetingsList.tsx';
 import { PendingTasksWidget } from './PendingTasksWidget.tsx';
 import { RecentSummariesFeed } from './RecentSummariesFeed.tsx';
 import { ScheduleMeetingModal } from './ScheduleMeetingModal.tsx';
+import { GoToLiveMeetingModal } from './GoToLiveMeetingModal.tsx';
+import { GoToMeetingSummaryModal } from './GoToMeetingSummaryModal.tsx';
 import { OrganizationSetupScreen } from '../organization/OrganizationSetupScreen.tsx';
+import { MyMeetingsScreen } from '../meetings/MyMeetingsScreen.tsx';
+import { AudioTranscriberModal } from '../audio/AudioTranscriberModal.tsx';
+import { MeetingDetailModal } from '../meetings/MeetingDetailModal.tsx';
+import { MeetingTranscriptModal } from '../meetings/MeetingTranscriptModal.tsx';
+import { MeetingRecordingUploadModal } from '../meetings/MeetingRecordingUploadModal.tsx';
 
 export const HomeScreen: React.FC = () => {
   const { profile, organization, logout, reloadUser } = useAuth();
@@ -43,18 +56,24 @@ export const HomeScreen: React.FC = () => {
   const [summaries, setSummaries] = useState<{ summary: Summary; meeting?: Meeting }[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
+  // Active Tab
+  const [activeTab, setActiveTab] = useState<'overview' | 'meetings' | 'recordings' | 'tasks'>('overview');
+
   // Modals & Navigation
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [isTranscriberOpen, setIsTranscriberOpen] = useState(false);
   const [showOrgSetup, setShowOrgSetup] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
+  const [activeLiveMeeting, setActiveLiveMeeting] = useState<Meeting | null>(null);
+  const [selectedSummary, setSelectedSummary] = useState<{ summary: Summary; meeting?: Meeting } | null>(null);
+  const [detailMeeting, setDetailMeeting] = useState<Meeting | null>(null);
+  const [transcriptMeeting, setTranscriptMeeting] = useState<Meeting | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadTargetMeeting, setUploadTargetMeeting] = useState<Meeting | null>(null);
 
-  // Time-aware greeting
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  };
+  // Quick join input
+  const [quickJoinId, setQuickJoinId] = useState('');
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [roleSwitching, setRoleSwitching] = useState(false);
 
   // Load live data from Firestore / Service
   useEffect(() => {
@@ -82,7 +101,7 @@ export const HomeScreen: React.FC = () => {
     setMeetings([newMeeting, ...meetings]);
   };
 
-  const copyInvite = () => {
+  const copyOrgInvite = () => {
     if (organization?.inviteCode) {
       navigator.clipboard.writeText(organization.inviteCode);
       setCopiedCode(true);
@@ -90,7 +109,82 @@ export const HomeScreen: React.FC = () => {
     }
   };
 
-  // If user opens Screen 2 (Organization Setup)
+  const toggleUserRole = async () => {
+    if (!profile) return;
+    setRoleSwitching(true);
+    const newRole = profile.role === 'admin' ? 'member' : 'admin';
+    await saveUserProfile({
+      ...profile,
+      role: newRole
+    });
+    await reloadUser();
+    setRoleSwitching(false);
+  };
+
+  const handleStartInstantMeeting = () => {
+    const instantMeeting: Meeting = {
+      id: `meet-${Date.now().toString(36)}`,
+      title: `${profile?.name || 'Workspace'}'s Instant Meeting`,
+      organizationId: organization?.id || 'org-apex-college',
+      organizerId: profile?.id || 'host',
+      scheduledAt: new Date().toISOString(),
+      status: 'in_progress',
+      participants: [
+        {
+          userId: profile?.id || 'host',
+          name: profile?.name || 'Host',
+          email: profile?.email || '',
+          attended: true,
+          role: 'organizer'
+        }
+      ]
+    };
+    setActiveLiveMeeting(instantMeeting);
+  };
+
+  const handleJoinById = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickJoinId.trim()) return;
+    const targetMeeting = meetings.find(m => m.id.toLowerCase() === quickJoinId.trim().toLowerCase()) || {
+      id: quickJoinId.trim(),
+      title: `Meeting (${quickJoinId.trim()})`,
+      organizationId: organization?.id || 'org-apex-college',
+      organizerId: 'external',
+      scheduledAt: new Date().toISOString(),
+      status: 'in_progress' as const,
+      participants: []
+    };
+    setActiveLiveMeeting(targetMeeting);
+    setQuickJoinId('');
+  };
+
+  const handleOpenMeetingSummary = (m: Meeting) => {
+    const found = summaries.find(s => s.meeting?.id === m.id || s.summary.meetingId === m.id);
+    if (found) {
+      setSelectedSummary(found);
+    } else {
+      setSelectedSummary({
+        meeting: m,
+        summary: {
+          id: `sum-${m.id}`,
+          meetingId: m.id,
+          summaryText: `AI executive notes & key decisions for "${m.title}". Meeting discussion was processed into highlights, action items, and searchable notes.`,
+          keyPoints: [
+            'All primary agenda points reviewed and evaluated by participants.',
+            'Milestones and deliverables scheduled according to timeline.',
+            'Action points delegated to designated owners.'
+          ],
+          decisions: [
+            'Approved committee proposals as presented during the session.',
+            'Follow-up sync set for next milestone review.'
+          ],
+          createdAt: m.scheduledAt
+        }
+      });
+    }
+  };
+
+  // If user opens Organization Setup
   if (showOrgSetup) {
     return (
       <OrganizationSetupScreen
@@ -104,253 +198,424 @@ export const HomeScreen: React.FC = () => {
   const upcomingMeetingsCount = meetings.filter(m => m.status === 'scheduled').length;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500/30">
-      {/* Background ambient lighting */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl"></div>
-      </div>
-
-      {/* Top Navbar */}
-      <header className="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-md sticky top-0 z-30">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans selection:bg-[#FFE900]/40">
+      {/* Top Bar - Clean White with GoTo Visual Hierarchy */}
+      <header className="border-b border-slate-200 bg-white sticky top-0 z-30 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          {/* Logo & Platform Tag */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
-              <BrainCircuit className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-slate-100 text-base leading-tight tracking-tight">
-                  MidMeetMind
-                </span>
-                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
-                  <Sparkles className="w-2.5 h-2.5" />
-                  Meeting Workspace
-                </span>
+          {/* Left: MidMeetMind Brand & Nav */}
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-[#FFE900] text-slate-950 font-black text-lg flex items-center justify-center shadow-xs">
+                M
               </div>
-              <p className="text-[11px] text-slate-400">AI Meeting Companion</p>
+              <div>
+                <div className="flex items-center gap-1">
+                  <span className="font-black text-slate-950 text-lg leading-tight tracking-tight">
+                    MidMeet
+                  </span>
+                  <span className="font-medium text-slate-700 text-lg leading-tight tracking-tight">
+                    Mind
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">
+                  AI Meeting Companion &amp; Workspace
+                </p>
+              </div>
             </div>
+
+            {/* Nav Tabs */}
+            <nav className="hidden md:flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab('overview')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                  activeTab === 'overview'
+                    ? 'bg-slate-100 text-slate-950'
+                    : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+                }`}
+              >
+                Overview
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('meetings')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                  activeTab === 'meetings'
+                    ? 'bg-slate-100 text-slate-950'
+                    : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+                }`}
+              >
+                Meetings ({meetings.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('tasks')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                  activeTab === 'tasks'
+                    ? 'bg-slate-100 text-slate-950'
+                    : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+                }`}
+              >
+                Action Items ({pendingTasksCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('recordings')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                  activeTab === 'recordings'
+                    ? 'bg-slate-100 text-slate-950'
+                    : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+                }`}
+              >
+                Summaries &amp; Transcripts
+              </button>
+            </nav>
           </div>
 
-          {/* Org Pill & Navigation Controls */}
-          <div className="flex items-center gap-2.5">
+          {/* Right: Organization & Profile */}
+          <div className="flex items-center gap-3">
             {/* Organization context badge */}
             {organization && (
-              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-700">
                 {organization.type === 'college' ? (
-                  <GraduationCap className="w-4 h-4 text-indigo-400" />
+                  <GraduationCap className="w-4 h-4 text-indigo-600" />
                 ) : organization.type === 'school' ? (
-                  <Building2 className="w-4 h-4 text-amber-400" />
+                  <Building2 className="w-4 h-4 text-amber-600" />
                 ) : (
-                  <Briefcase className="w-4 h-4 text-emerald-400" />
+                  <Briefcase className="w-4 h-4 text-emerald-600" />
                 )}
-                <span className="font-semibold text-slate-200">{organization.name}</span>
-                <span className="text-slate-600">|</span>
+                <span className="font-semibold text-slate-900">{organization.name}</span>
+                <span className="text-slate-300">|</span>
                 <button
                   type="button"
-                  onClick={copyInvite}
-                  className="flex items-center gap-1 font-mono text-[11px] text-indigo-400 hover:text-indigo-300 bg-indigo-950/50 px-2 py-0.5 rounded border border-indigo-500/20 transition-colors cursor-pointer"
+                  onClick={copyOrgInvite}
+                  className="font-mono text-[11px] text-slate-600 hover:text-slate-900 transition-colors flex items-center gap-1 cursor-pointer"
                   title="Copy Org Invite Code"
                 >
                   <span>{organization.inviteCode}</span>
-                  {copiedCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  {copiedCode ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-slate-400" />}
                 </button>
               </div>
             )}
 
-            {/* Screen 2 Switcher */}
+            {/* Schedule Button (GoTo Signature Yellow) */}
             <button
               type="button"
-              onClick={() => setShowOrgSetup(true)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
-              title="Open Organization Setup (Screen 2)"
+              onClick={() => setIsScheduleOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#FFE900] hover:bg-[#F5DE00] text-slate-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
             >
-              <Building2 className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="hidden sm:inline">Org Setup</span>
+              <Plus className="w-3.5 h-3.5" />
+              <span>Schedule</span>
             </button>
 
-            {/* User Role Badge */}
-            <span
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider ${
-                profile?.role === 'admin'
-                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-              }`}
-            >
-              {profile?.role === 'admin' ? 'Admin' : 'Member'}
-            </span>
+            {/* User Profile & Logout */}
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+              <div className="w-8 h-8 rounded-full bg-slate-900 text-[#FFE900] font-bold text-xs flex items-center justify-center">
+                {profile?.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-bold text-slate-900 leading-tight">
+                  {profile?.name || 'Account'}
+                </p>
+                <p className="text-[10px] text-slate-500 capitalize">
+                  {profile?.role === 'admin' ? 'Organizer / Admin' : 'Participant'}
+                </p>
+              </div>
 
-            {/* Logout */}
-            <button
-              type="button"
-              onClick={logout}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 transition-colors cursor-pointer"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={logout}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 transition-colors ml-1 cursor-pointer"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 space-y-8 relative z-10">
-        
-        {/* 1. Welcome Message & Action Banner */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-indigo-950/80 via-slate-900 to-slate-900 border border-indigo-500/30 shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-          <div className="space-y-2 relative z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-medium">
-              <Clock className="w-3.5 h-3.5" />
-              <span>
-                {new Date().toLocaleDateString(undefined, {
-                  weekday: 'long',
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* ======================================================== */}
+        {/* WELCOME & STATUS BANNER (MidMeetMind Core Context) */}
+        {/* ======================================================== */}
+        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                Workspace Active
+              </span>
+              <span className="text-xs text-slate-400">·</span>
+              <span className="text-xs font-medium text-slate-600">
+                Organization: <strong>{organization?.name || 'Apex Institute'}</strong>
               </span>
             </div>
-
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              {getGreeting()}, {profile?.name || 'Organizer'}!
-            </h2>
-
-            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Here is your central hub for <strong>{organization?.name || 'your Organization'}</strong>. Track upcoming meeting sessions, outstanding action items, and AI-generated summaries in one place.
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Welcome back, {profile?.name || 'Team Member'}!
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
+              Your organizational workspace is ready. Access scheduled video conferences, view AI summaries with key decisions, and track your pending deliverables.
             </p>
           </div>
 
-          {/* Primary Action Button */}
-          <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 relative z-10">
+          <div className="flex items-center gap-2.5 shrink-0">
             <button
               type="button"
-              onClick={() => setIsScheduleOpen(true)}
-              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-xs sm:text-sm shadow-xl shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              onClick={() => setShowOrgSetup(true)}
+              className="px-3.5 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              <Plus className="w-4 h-4" />
-              <span>Schedule New Meeting</span>
+              <Building2 className="w-3.5 h-3.5 text-slate-500" />
+              <span>Org Settings</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleUserRole}
+              disabled={roleSwitching}
+              className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#FFE900]" />
+              <span>{roleSwitching ? 'Updating...' : `Role: ${profile?.role === 'admin' ? 'Admin' : 'Member'}`}</span>
             </button>
           </div>
         </div>
 
-        {/* 2. Quick Stat Counters */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Stat 1 */}
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
-              <Calendar className="w-6 h-6" />
+        {/* ======================================================== */}
+        {/* QUICK METRICS BAR (GoTo Meeting Clean Cards) */}
+        {/* ======================================================== */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Stat 1: Scheduled Meetings */}
+          <div
+            onClick={() => setActiveTab('meetings')}
+            className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs cursor-pointer hover:border-slate-300 transition-all"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Scheduled Meetings</span>
+              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Calendar className="w-4 h-4" />
+              </div>
             </div>
-            <div>
-              <span className="text-2xl font-bold text-white tracking-tight">{upcomingMeetingsCount}</span>
-              <p className="text-xs text-slate-400 font-medium">Upcoming Meetings</p>
-            </div>
+            <div className="text-2xl font-black text-slate-900">{meetings.length}</div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              {upcomingMeetingsCount} upcoming conference sessions
+            </p>
           </div>
 
-          {/* Stat 2 */}
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
-              <ListTodo className="w-6 h-6" />
+          {/* Stat 2: Pending Action Items */}
+          <div
+            onClick={() => setActiveTab('tasks')}
+            className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs cursor-pointer hover:border-slate-300 transition-all"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Action Items</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <ListTodo className="w-4 h-4" />
+              </div>
             </div>
-            <div>
-              <span className="text-2xl font-bold text-white tracking-tight">{pendingTasksCount}</span>
-              <p className="text-xs text-slate-400 font-medium">Pending Action Items</p>
-            </div>
+            <div className="text-2xl font-black text-slate-900">{pendingTasksCount}</div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Extracted from conference transcripts
+            </p>
           </div>
 
-          {/* Stat 3 */}
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-violet-500/10 text-violet-400 flex items-center justify-center shrink-0">
-              <Sparkles className="w-6 h-6" />
+          {/* Stat 3: AI Summaries */}
+          <div
+            onClick={() => setActiveTab('recordings')}
+            className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs cursor-pointer hover:border-slate-300 transition-all"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Processed Summaries</span>
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <FileText className="w-4 h-4" />
+              </div>
             </div>
-            <div>
-              <span className="text-2xl font-bold text-white tracking-tight">{summaries.length}</span>
-              <p className="text-xs text-slate-400 font-medium">Summaries Generated</p>
+            <div className="text-2xl font-black text-slate-900">{summaries.length}</div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Audio recordings &amp; transcript archives
+            </p>
+          </div>
+
+          {/* Stat 4: Organization Code */}
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Organization Code</span>
+              <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
+                <Building2 className="w-4 h-4" />
+              </div>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-lg font-mono font-bold text-slate-900">
+                {organization?.inviteCode || 'APEX2026'}
+              </span>
+              <button
+                type="button"
+                onClick={copyOrgInvite}
+                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs transition-colors"
+                title="Copy Invite Code"
+              >
+                {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Share code with participants to join
+            </p>
           </div>
         </div>
 
-        {/* 3. Main Dashboard Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Left Column (2 Cols wide on desktop): Upcoming Meetings & Recent Summaries Feed */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Upcoming Meetings List */}
-            <UpcomingMeetingsList
-              meetings={meetings}
-              onOpenScheduleModal={() => setIsScheduleOpen(true)}
-            />
+        {/* ======================================================== */}
+        {/* QUICK ACTION BAR (Instant Meeting, Schedule, Join) */}
+        {/* ======================================================== */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {/* Start Instant Meeting */}
+            <button
+              type="button"
+              onClick={handleStartInstantMeeting}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFE900] hover:bg-[#F5DE00] text-slate-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
+            >
+              <Play className="w-3.5 h-3.5 fill-slate-950" />
+              <span>Start Instant Meeting</span>
+            </button>
 
-            {/* Recent Meeting Summaries Feed */}
-            <RecentSummariesFeed
-              summaries={summaries}
-            />
+            {/* Schedule Meeting */}
+            <button
+              type="button"
+              onClick={() => setIsScheduleOpen(true)}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Schedule Session</span>
+            </button>
+
+            {/* Mic Audio Transcribe (gemini-3.5-transcribe) */}
+            <button
+              type="button"
+              onClick={() => setIsTranscriberOpen(true)}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-950 font-bold text-xs transition-colors cursor-pointer"
+              title="Record and transcribe audio with gemini-3.5-transcribe"
+            >
+              <Mic className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Transcribe Audio</span>
+            </button>
+
+            {/* Upload Recording (Screen 7: Meeting Recording / Upload) */}
+            <button
+              type="button"
+              onClick={() => {
+                setUploadTargetMeeting(null);
+                setIsUploadModalOpen(true);
+              }}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
+              title="Upload recorded audio or video file to feed into AI pipeline"
+            >
+              <Upload className="w-3.5 h-3.5 text-slate-600" />
+              <span>Upload Recording</span>
+            </button>
           </div>
 
-          {/* Right Column (1 Col wide on desktop): Pending Tasks Widget & Org Information */}
-          <div className="space-y-8">
-            {/* Pending Tasks Widget */}
+          {/* Quick Join by ID Form */}
+          <form onSubmit={handleJoinById} className="flex gap-2 w-full sm:w-auto">
+            <input
+              type="text"
+              value={quickJoinId}
+              onChange={(e) => setQuickJoinId(e.target.value)}
+              placeholder="Enter Meeting ID to join..."
+              className="flex-1 sm:w-60 px-3 py-2 text-xs rounded-xl border border-slate-300 outline-none focus:border-slate-500 bg-slate-50 text-slate-900"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
+            >
+              Join
+            </button>
+          </form>
+        </div>
+
+        {/* ======================================================== */}
+        {/* MAIN DASHBOARD SECTIONS (Based on Active Tab) */}
+        {/* ======================================================== */}
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left 2 Cols: Upcoming Meetings & AI Summaries */}
+            <div className="lg:col-span-2 space-y-6">
+              <UpcomingMeetingsList
+                meetings={meetings}
+                onOpenScheduleModal={() => setIsScheduleOpen(true)}
+                onStartMeeting={(m) => setActiveLiveMeeting(m)}
+                onViewAll={() => setActiveTab('meetings')}
+                onOpenMeetingDetail={(m) => setDetailMeeting(m)}
+              />
+
+              <RecentSummariesFeed
+                summaries={summaries}
+                onSelectSummary={(sum, m) => setSelectedSummary({ summary: sum, meeting: m })}
+              />
+            </div>
+
+            {/* Right 1 Col: Pending Action Items */}
+            <div className="space-y-6">
+              <PendingTasksWidget
+                tasks={tasks}
+                onTasksUpdated={(updated) => setTasks(updated)}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'meetings' && (
+          <MyMeetingsScreen
+            meetings={meetings}
+            onOpenScheduleModal={() => setIsScheduleOpen(true)}
+            onStartMeeting={(m) => setActiveLiveMeeting(m)}
+            onViewSummary={(m) => handleOpenMeetingSummary(m)}
+            onViewTranscript={(m) => setTranscriptMeeting(m)}
+            onOpenMeetingDetail={(m) => setDetailMeeting(m)}
+          />
+        )}
+
+        {activeTab === 'tasks' && (
+          <div className="max-w-4xl mx-auto">
             <PendingTasksWidget
               tasks={tasks}
               onTasksUpdated={(updated) => setTasks(updated)}
             />
+          </div>
+        )}
 
-            {/* Organization Invite Card */}
-            <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800/80 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Team Workspace
-                </span>
-                <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-indigo-500/10 text-indigo-400">
-                  {organization?.type || 'College'}
-                </span>
-              </div>
-
+        {activeTab === 'recordings' && (
+          <div className="space-y-6">
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h4 className="text-base font-bold text-white">{organization?.name}</h4>
-                <p className="text-xs text-slate-400 mt-1">
-                  Share this invite code with colleagues, students, or staff so they join your organization's meeting feed:
+                <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                  <Video className="w-4 h-4 text-slate-700" />
+                  <span>Meeting Recordings &amp; AI Summaries</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Browse processed meeting audio, review AI key decisions, or upload a new recording to process.
                 </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-950/80 border border-indigo-500/30 flex items-center justify-between">
-                <span className="font-mono text-sm font-bold text-indigo-300 tracking-wider">
-                  {organization?.inviteCode || 'APEX2026'}
-                </span>
-                <button
-                  type="button"
-                  onClick={copyInvite}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-xs font-semibold text-indigo-300 flex items-center gap-1.5 cursor-pointer transition-colors"
-                >
-                  {copiedCode ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-500 flex items-center justify-between">
-                <span>Role: <strong>{profile?.role === 'admin' ? 'Organizer / Admin' : 'Participant'}</strong></span>
-                <button
-                  type="button"
-                  onClick={() => setShowOrgSetup(true)}
-                  className="text-indigo-400 hover:text-indigo-300 cursor-pointer"
-                >
-                  Manage Org &rarr;
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadTargetMeeting(null);
+                  setIsUploadModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#FFE900] hover:bg-[#F5DE00] text-slate-950 font-bold text-xs shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload Recording</span>
+              </button>
             </div>
+
+            <RecentSummariesFeed
+              summaries={summaries}
+              onSelectSummary={(sum, m) => setSelectedSummary({ summary: sum, meeting: m })}
+            />
           </div>
-        </div>
+        )}
       </main>
 
       {/* Schedule Meeting Modal */}
@@ -358,6 +623,107 @@ export const HomeScreen: React.FC = () => {
         isOpen={isScheduleOpen}
         onClose={() => setIsScheduleOpen(false)}
         onMeetingScheduled={handleMeetingScheduled}
+      />
+
+      {/* Live Video Conference Modal */}
+      {activeLiveMeeting && (
+        <GoToLiveMeetingModal
+          meeting={activeLiveMeeting}
+          onClose={() => setActiveLiveMeeting(null)}
+          onMeetingCompleted={(id) => {
+            setMeetings(prev => prev.map(m => m.id === id ? { ...m, status: 'completed' } : m));
+          }}
+        />
+      )}
+
+      {/* Meeting Summary & Recording Modal */}
+      {selectedSummary && (
+        <GoToMeetingSummaryModal
+          summary={selectedSummary.summary}
+          meeting={selectedSummary.meeting}
+          onClose={() => setSelectedSummary(null)}
+          onTaskToggle={(taskId) => {
+            setTasks(prev => prev.map(t => t.id === taskId ? {
+              ...t,
+              status: t.status === 'completed' ? 'pending' : 'completed'
+            } : t));
+          }}
+        />
+      )}
+
+      {/* Audio Transcriber Modal (Model: gemini-3.5-transcribe) */}
+      <AudioTranscriberModal
+        isOpen={isTranscriberOpen}
+        onClose={() => setIsTranscriberOpen(false)}
+        meetingTitle="Workspace Audio Recording"
+      />
+
+      {/* Screen 6: Meeting Detail Screen (Modal View of single meeting context) */}
+      {detailMeeting && (
+        <MeetingDetailModal
+          isOpen={!!detailMeeting}
+          meeting={detailMeeting}
+          summary={summaries.find(s => s.meeting?.id === detailMeeting.id || s.summary.meetingId === detailMeeting.id)?.summary}
+          onClose={() => setDetailMeeting(null)}
+          onStartMeeting={(m) => {
+            setDetailMeeting(null);
+            setActiveLiveMeeting(m);
+          }}
+          onViewSummary={(m) => {
+            handleOpenMeetingSummary(m);
+          }}
+          onViewTranscript={(m) => {
+            setTranscriptMeeting(m);
+          }}
+          onOpenUploadRecording={(m) => {
+            setDetailMeeting(null);
+            setUploadTargetMeeting(m);
+            setIsUploadModalOpen(true);
+          }}
+          onMeetingUpdated={(updated) => {
+            setMeetings(prev => prev.map(m => m.id === updated.id ? updated : m));
+            setDetailMeeting(updated);
+          }}
+          onMeetingCancelled={(id) => {
+            setMeetings(prev => prev.map(m => m.id === id ? { ...m, status: 'cancelled' as any } : m));
+            setDetailMeeting(null);
+          }}
+        />
+      )}
+
+      {/* Meeting Transcript Modal */}
+      {transcriptMeeting && (
+        <MeetingTranscriptModal
+          isOpen={!!transcriptMeeting}
+          meeting={transcriptMeeting}
+          summary={summaries.find(s => s.meeting?.id === transcriptMeeting.id || s.summary.meetingId === transcriptMeeting.id)?.summary}
+          onClose={() => setTranscriptMeeting(null)}
+        />
+      )}
+
+      {/* Screen 7: Meeting Recording / Upload Screen */}
+      <MeetingRecordingUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => {
+          setIsUploadModalOpen(false);
+          setUploadTargetMeeting(null);
+        }}
+        meetings={meetings}
+        initialMeeting={uploadTargetMeeting}
+        onProcessingComplete={async (meetingId) => {
+          const orgId = organization?.id || 'org-apex-college';
+          const [meets, sums, tsks] = await Promise.all([
+            fetchMeetingsByOrg(orgId),
+            fetchRecentSummaries(),
+            fetchTasks(orgId, profile?.id)
+          ]);
+          setMeetings(meets);
+          setSummaries(sums);
+          setTasks(tsks);
+        }}
+        onOpenSummary={(m) => {
+          handleOpenMeetingSummary(m);
+        }}
       />
     </div>
   );

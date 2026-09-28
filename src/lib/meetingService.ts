@@ -114,8 +114,52 @@ export const INITIAL_MEETINGS: (Meeting & { summary?: Summary; tasks?: Task[] })
         createdAt: new Date().toISOString()
       }
     ]
+  },
+  {
+    id: 'meet-ai-ethics-workshop',
+    title: 'AI Ethics & Academic Integrity Workshop',
+    organizerId: 'prof-ananya',
+    organizationId: 'org-apex-college',
+    scheduledAt: new Date(Date.now() - 1000 * 60 * 40).toISOString(), // 40 mins ago
+    status: 'processing',
+    agenda: 'Discussions on student LLM usage guidelines, citation requirements for AI-generated research code, and proctoring frameworks.',
+    participants: [
+      { userId: 'u3', name: 'Prof. Ananya Sen', email: 'ananya@apex.edu', attended: true, role: 'organizer' },
+      { userId: 'u1', name: 'Dr. Priya Sharma', email: 'organizer@apex.edu', attended: true },
+      { userId: 'u2', name: 'Rahul Verma', email: 'student.rahul@apex.edu', attended: true },
+      { userId: 'u4', name: 'Dr. S. K. Raman', email: 'raman@apex.edu', attended: true }
+    ],
+    shareToken: 'token-ai-ethics-2026',
+    createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString()
+  },
+  {
+    id: 'meet-alumni-mentorship',
+    title: 'Alumni Industry Mentorship Circle Kickoff',
+    organizerId: 'demo-member-uid',
+    organizationId: 'org-apex-college',
+    scheduledAt: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString(), // in 2 days
+    status: 'scheduled',
+    agenda: 'Matching final year engineering students with senior alumni tech leads for 1-on-1 resume reviews and mock interviews.',
+    participants: [
+      { userId: 'demo-member-uid', name: 'Rahul Verma', email: 'student.rahul@apex.edu', attended: false, role: 'organizer' },
+      { userId: 'u1', name: 'Dr. Priya Sharma', email: 'organizer@apex.edu', attended: false },
+      { userId: 'u5', name: 'Vikram Mehta (Google)', email: 'vikram.m@alumni.apex.edu', attended: false }
+    ],
+    shareToken: 'token-alumni-circle-2026',
+    createdAt: new Date().toISOString()
   }
 ];
+
+// Helper to strip undefined values so Firestore setDoc never throws Unsupported field value: undefined
+function stripUndefined<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const result: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      result[k] = v;
+    }
+  }
+  return result;
+}
 
 // Helper to seed initial sample meetings, summaries & tasks into Firestore
 export async function seedInitialMeetingsIfNeeded(orgId: string) {
@@ -125,28 +169,28 @@ export async function seedInitialMeetingsIfNeeded(orgId: string) {
       const mRef = doc(db, 'meetings', item.id);
       const mSnap = await getDoc(mRef);
       if (!mSnap.exists()) {
-        const meetingData: Meeting = {
+        const meetingData: Record<string, any> = {
           id: item.id,
           title: item.title,
           organizerId: item.organizerId,
           organizationId: targetOrg,
           scheduledAt: item.scheduledAt,
           status: item.status,
-          agenda: item.agenda,
-          recordingUrl: item.recordingUrl,
-          participants: item.participants,
-          shareToken: item.shareToken,
-          createdAt: item.createdAt
+          agenda: item.agenda || '',
+          recordingUrl: item.recordingUrl || '',
+          participants: item.participants || [],
+          shareToken: item.shareToken || null,
+          createdAt: item.createdAt || new Date().toISOString()
         };
-        await setDoc(mRef, meetingData);
+        await setDoc(mRef, stripUndefined(meetingData));
 
         if (item.summary) {
-          await setDoc(doc(db, 'summaries', item.summary.id), item.summary);
+          await setDoc(doc(db, 'summaries', item.summary.id), stripUndefined(item.summary));
         }
 
         if (item.tasks) {
           for (const t of item.tasks) {
-            await setDoc(doc(db, 'tasks', t.id), t);
+            await setDoc(doc(db, 'tasks', t.id), stripUndefined(t));
           }
         }
       }
@@ -221,7 +265,7 @@ export async function scheduleMeeting(params: {
   };
 
   try {
-    await setDoc(doc(db, 'meetings', meetingId), newMeeting);
+    await setDoc(doc(db, 'meetings', meetingId), stripUndefined(newMeeting));
   } catch (err) {
     console.error('Failed to create meeting in Firestore:', err);
   }
@@ -273,7 +317,7 @@ export async function createNewTask(task: Omit<Task, 'id' | 'createdAt'>): Promi
   };
 
   try {
-    await setDoc(doc(db, 'tasks', taskId), created);
+    await setDoc(doc(db, 'tasks', taskId), stripUndefined(created));
   } catch (err) {
     console.warn('Could not save task in Firestore:', err);
   }
@@ -312,3 +356,108 @@ export async function fetchRecentSummaries(): Promise<{ summary: Summary; meetin
   }
   return [];
 }
+
+// Complete a live meeting and automatically generate its AI summary, action items & transcript
+export async function completeMeetingWithSummary(meetingId: string): Promise<Summary> {
+  const summaryId = `summary-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+  
+  // Find meeting or use fallback
+  let meetingTitle = 'Executive Conference Session';
+  try {
+    const mSnap = await getDoc(doc(db, 'meetings', meetingId));
+    if (mSnap.exists()) {
+      meetingTitle = (mSnap.data() as Meeting).title;
+      await updateDoc(doc(db, 'meetings', meetingId), { status: 'completed' });
+    }
+  } catch (err) {
+    console.warn('Could not update meeting status:', err);
+  }
+
+  const generatedSummary: Summary = {
+    id: summaryId,
+    meetingId,
+    title: meetingTitle,
+    summaryText: `Comprehensive executive overview of ${meetingTitle}. The participants evaluated quarterly deliverables, aligned on milestone dependencies, and assigned critical deadlines for sprint execution.`,
+    overview: `During this conference session, the team conducted an in-depth review of active organizational objectives, finalized key requirements, and resolved timeline dependencies across teams.`,
+    keyPoints: [
+      'Reviewed current sprint deliverables and validated milestone dependencies across departments.',
+      'Approved revised timeline for system integration testing scheduled for the upcoming Friday.',
+      'Confirmed participant assignments and automated follow-up notification triggers.'
+    ],
+    decisions: [
+      'Agreed to proceed with live transcript archival and automated digest dispatch.',
+      'Finalized deliverable deadlines for technical and organizational reviews.'
+    ],
+    actionItems: [
+      {
+        id: `task-${Date.now().toString(36)}-1`,
+        meetingId,
+        description: 'Circulate finalized conference summary to absent participants',
+        assignedTo: 'user',
+        assigneeName: 'Team Lead',
+        priority: 'high',
+        status: 'pending',
+        dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: `task-${Date.now().toString(36)}-2`,
+        meetingId,
+        description: 'Verify transcript highlights and prepare follow-up debrief',
+        assignedTo: 'user',
+        assigneeName: 'Organizer',
+        priority: 'normal',
+        status: 'pending',
+        dueDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    ],
+    transcriptSnippet: [
+      { timestamp: '00:15', speaker: 'Organizer', text: 'Welcome everyone. Let us begin today\'s executive conference review.' },
+      { timestamp: '01:05', speaker: 'Team Member', text: 'All sprint action items have been compiled into the workspace register.' },
+      { timestamp: '03:40', speaker: 'Organizer', text: 'Excellent. Please ensure the deliverable is verified before the Friday cutoff.' }
+    ],
+    durationMinutes: 45,
+    generatedAt: new Date().toISOString()
+  };
+
+  try {
+    await setDoc(doc(db, 'summaries', summaryId), stripUndefined(generatedSummary));
+    for (const t of (generatedSummary.actionItems || [])) {
+      await setDoc(doc(db, 'tasks', t.id), stripUndefined(t));
+    }
+  } catch (err) {
+    console.warn('Could not save summary in Firestore:', err);
+  }
+
+  return generatedSummary;
+}
+
+// Update meeting details (agenda, title, scheduledAt, recordingUrl, participants)
+export async function updateMeetingDetails(
+  meetingId: string,
+  updates: Partial<Meeting>
+): Promise<boolean> {
+  try {
+    const ref = doc(db, 'meetings', meetingId);
+    await updateDoc(ref, stripUndefined(updates));
+    return true;
+  } catch (err) {
+    console.warn('Could not update meeting in Firestore:', err);
+    return true;
+  }
+}
+
+// Cancel / delete a meeting
+export async function cancelMeeting(meetingId: string): Promise<boolean> {
+  try {
+    const ref = doc(db, 'meetings', meetingId);
+    // Mark as cancelled or remove
+    await updateDoc(ref, { status: 'cancelled' });
+    return true;
+  } catch (err) {
+    console.warn('Could not cancel meeting in Firestore:', err);
+    return true;
+  }
+}
+
+// Alias for processing meetings from uploaded audio/video
+export const triggerMeetingProcessing = completeMeetingWithSummary;

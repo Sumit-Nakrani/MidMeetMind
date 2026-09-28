@@ -30,6 +30,7 @@ export interface UserProfile {
   email: string;
   organizationId: string;
   role: UserRole;
+  passwordHash?: string;
   notificationPrefs?: NotificationPrefs;
   createdAt?: string;
 }
@@ -40,7 +41,8 @@ export interface MeetingParticipant {
   userId: string;
   name?: string;
   email?: string;
-  attended: boolean;
+  attended?: boolean;
+  role?: string;
 }
 
 export interface Meeting {
@@ -57,6 +59,12 @@ export interface Meeting {
   createdAt?: string;
 }
 
+export interface TranscriptSnippet {
+  timestamp: string;
+  speaker: string;
+  text: string;
+}
+
 export interface Transcript {
   id: string;
   meetingId: string;
@@ -67,9 +75,15 @@ export interface Transcript {
 export interface Summary {
   id: string;
   meetingId: string;
+  title?: string;
   summaryText: string;
+  overview?: string;
   keyPoints: string[];
   decisions: string[];
+  actionItems?: Task[];
+  transcriptSnippet?: TranscriptSnippet[];
+  durationMinutes?: number;
+  generatedAt?: string;
   createdAt?: string;
 }
 
@@ -84,6 +98,7 @@ export interface Task {
   description: string;
   dueDate: string; // ISO string
   status: TaskStatus;
+  priority?: 'normal' | 'high' | 'urgent';
   meetingTitle?: string;
   createdAt?: string;
 }

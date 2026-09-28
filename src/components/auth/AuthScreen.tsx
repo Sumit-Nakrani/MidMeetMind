@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.tsx';
 import {
-  BrainCircuit,
   Mail,
   Lock,
   User,
@@ -10,13 +9,13 @@ import {
   Briefcase,
   KeyRound,
   ArrowRight,
-  Sparkles,
   CheckCircle2,
   AlertCircle,
   Copy,
   Check,
   Eye,
   EyeOff,
+  Video,
   ShieldCheck,
   Users
 } from 'lucide-react';
@@ -61,7 +60,7 @@ export const AuthScreen: React.FC = () => {
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  // Validate invite code on blur or change
+  // Validate invite code on blur
   const handleInviteCodeBlur = async () => {
     if (!inviteCode.trim()) {
       setOrgLookupStatus(null);
@@ -102,14 +101,8 @@ export const AuthScreen: React.FC = () => {
         errors.name = 'Full name is required';
       }
 
-      if (isCreatingOrg) {
-        if (!newOrgName.trim()) {
-          errors.newOrgName = 'Organization name is required';
-        }
-      } else {
-        if (!inviteCode.trim()) {
-          errors.inviteCode = 'Organization invite code is required';
-        }
+      if (isCreatingOrg && !newOrgName.trim()) {
+        errors.newOrgName = 'Organization name is required';
       }
     }
 
@@ -149,42 +142,45 @@ export const AuthScreen: React.FC = () => {
     setForgotMessage({ text: res.message, isError: !res.success });
   };
 
-  const copyToClipboard = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCode(code);
-    setInviteCode(code);
-    handleInviteCodeBlur();
-    setTimeout(() => setCopiedCode(null), 2000);
+  const fillDemoAccount = (demoRole: 'admin' | 'member') => {
+    if (demoRole === 'admin') {
+      setEmail('organizer@apex.edu');
+      setPassword('MidMeetMind2026!');
+    } else {
+      setEmail('student.rahul@apex.edu');
+      setPassword('MidMeetMind2026!');
+    }
+    clearError();
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 selection:bg-indigo-500/30">
-      {/* Background ambient lighting */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 -right-40 w-96 h-96 bg-violet-600/15 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl"></div>
-      </div>
-
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 text-center">
-        {/* Brand Icon & Heading */}
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white shadow-xl shadow-indigo-500/25 mb-4 ring-1 ring-white/20">
-          <BrainCircuit className="w-8 h-8" />
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 selection:bg-[#FFE900]/40">
+      {/* Top Header */}
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
+        <div className="flex items-center justify-center gap-2.5 mb-2">
+          {/* MidMeetMind Yellow Mark in GoTo style */}
+          <div className="w-10 h-10 rounded-xl bg-[#FFE900] text-slate-950 font-black text-xl flex items-center justify-center shadow-xs">
+            M
+          </div>
+          <div className="flex items-center gap-1.5 text-left">
+            <span className="font-black text-slate-950 text-2xl tracking-tight">
+              MidMeet
+            </span>
+            <span className="font-medium text-slate-700 text-2xl tracking-tight">
+              Mind
+            </span>
+          </div>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-          MidMeetMind
-        </h1>
-        <p className="mt-1 text-xs sm:text-sm text-slate-400">
-          AI-Powered Meeting Assistant for Colleges, Schools &amp; Companies
+        <p className="text-xs text-slate-500 font-medium">
+          AI Meeting Companion &amp; Executive Workspace
         </p>
       </div>
 
-      {/* Main Auth Card */}
-      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-xl relative z-10">
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 shadow-2xl rounded-2xl p-6 sm:p-8">
-          
-          {/* Top Toggle: Login vs Sign Up */}
-          <div className="flex p-1 bg-slate-950/60 rounded-xl border border-slate-800 mb-6">
+      {/* Main Card */}
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-6 sm:px-8 shadow-xl rounded-2xl border border-slate-200">
+          {/* Mode Switcher Tabs */}
+          <div className="flex rounded-xl bg-slate-100 p-1 mb-6 border border-slate-200">
             <button
               type="button"
               onClick={() => {
@@ -192,13 +188,13 @@ export const AuthScreen: React.FC = () => {
                 clearError();
                 setFormErrors({});
               }}
-              className={`flex-1 py-2.5 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
                 mode === 'login'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-slate-950 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-950'
               }`}
             >
-              Log In
+              Sign In
             </button>
             <button
               type="button"
@@ -207,76 +203,118 @@ export const AuthScreen: React.FC = () => {
                 clearError();
                 setFormErrors({});
               }}
-              className={`flex-1 py-2.5 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
                 mode === 'signup'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-slate-950 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-950'
               }`}
             >
               Create Account
             </button>
           </div>
 
+          {/* Google Sign In Button */}
+          <button
+            type="button"
+            onClick={() => loginWithGoogle(inviteCode)}
+            disabled={loading}
+            className="w-full py-2.5 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-800 font-semibold text-xs flex items-center justify-center gap-2.5 shadow-2xs transition-colors cursor-pointer mb-5"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+              />
+            </svg>
+            <span>Continue with Google</span>
+          </button>
+
+          {/* Clean Divider */}
+          <div className="relative my-4 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200"></div>
+            </div>
+            <span className="relative px-3 bg-white text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+              or continue with email
+            </span>
+          </div>
+
           {/* Error Banner */}
           {error && (
-            <div className="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-2.5 text-rose-300 text-xs">
+            <div className="mb-5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <div className="flex-1">{error}</div>
+              <div className="flex-1 leading-relaxed">
+                <span>{error}</span>
+              </div>
             </div>
           )}
 
-          {/* Main Form */}
+          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* If Sign Up: Full Name */}
+            {/* Full Name (Sign Up only) */}
             {mode === 'signup' && (
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Full Name
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Full Name *
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <User className="w-4 h-4" />
                   </div>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Dr. Aryan Patel"
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-100 text-sm placeholder-slate-500 outline-none transition-all"
+                    placeholder="e.g. Sumit Nakrani"
+                    className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:border-slate-500 bg-white text-slate-900"
                   />
                 </div>
                 {formErrors.name && (
-                  <p className="mt-1 text-[11px] text-rose-400">{formErrors.name}</p>
+                  <p className="mt-1 text-[11px] text-rose-600">{formErrors.name}</p>
                 )}
               </div>
             )}
 
             {/* Email Address */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Email Address
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Email Address *
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                   <Mail className="w-4 h-4" />
                 </div>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@college.edu or company.com"
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-100 text-sm placeholder-slate-500 outline-none transition-all"
+                  placeholder="name@company.com"
+                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:border-slate-500 bg-white text-slate-900"
                 />
               </div>
               {formErrors.email && (
-                <p className="mt-1 text-[11px] text-rose-400">{formErrors.email}</p>
+                <p className="mt-1 text-[11px] text-rose-600">{formErrors.email}</p>
               )}
             </div>
 
             {/* Password */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-slate-300">Password</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700">
+                  Password *
+                </label>
                 {mode === 'login' && (
                   <button
                     type="button"
@@ -285,14 +323,14 @@ export const AuthScreen: React.FC = () => {
                       setShowForgotModal(true);
                       setForgotMessage(null);
                     }}
-                    className="text-[11px] font-medium text-indigo-400 hover:text-indigo-300 hover:underline"
+                    className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:underline"
                   >
                     Forgot Password?
                   </button>
                 )}
               </div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -300,58 +338,58 @@ export const AuthScreen: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Minimum 6 characters"
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-100 text-sm placeholder-slate-500 outline-none transition-all"
+                  className="w-full pl-9 pr-10 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:border-slate-500 bg-white text-slate-900"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
               {formErrors.password && (
-                <p className="mt-1 text-[11px] text-rose-400">{formErrors.password}</p>
+                <p className="mt-1 text-[11px] text-rose-600">{formErrors.password}</p>
               )}
             </div>
 
-            {/* If Sign Up: Role Selection & Organization Options */}
+            {/* Sign Up: Role Selection & Optional Org */}
             {mode === 'signup' && (
-              <div className="space-y-4 pt-2 border-t border-slate-800/80">
-                {/* User Role Selection */}
+              <div className="space-y-4 pt-3 border-t border-slate-200">
+                {/* Role Switcher */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                    Your Primary Role
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Your Primary Workspace Role
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setRole('member')}
-                      className={`p-3 rounded-xl border text-left flex flex-col transition-all ${
+                      className={`p-2.5 rounded-xl border text-left flex flex-col transition-all ${
                         role === 'member'
-                          ? 'border-indigo-500 bg-indigo-500/10 text-white'
-                          : 'border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700'
+                          ? 'border-slate-900 bg-slate-50 text-slate-950 font-semibold'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="text-xs font-semibold text-slate-200">Participant / Member</span>
-                      <span className="text-[11px] text-slate-400 mt-0.5">Joins meetings, receives summaries &amp; tasks</span>
+                      <span className="text-xs">Participant</span>
+                      <span className="text-[10px] text-slate-500 font-normal mt-0.5">Joins video meetings</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setRole('admin')}
-                      className={`p-3 rounded-xl border text-left flex flex-col transition-all ${
+                      className={`p-2.5 rounded-xl border text-left flex flex-col transition-all ${
                         role === 'admin'
-                          ? 'border-indigo-500 bg-indigo-500/10 text-white'
-                          : 'border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700'
+                          ? 'border-slate-900 bg-slate-50 text-slate-950 font-semibold'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="text-xs font-semibold text-slate-200">Admin / Organizer</span>
-                      <span className="text-[11px] text-slate-400 mt-0.5">Schedules, uploads recordings, manages org</span>
+                      <span className="text-xs">Organizer / Admin</span>
+                      <span className="text-[10px] text-slate-500 font-normal mt-0.5">Schedules &amp; manages org</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Organization Join vs Create */}
+                {/* Optional Invite Code or Create Org */}
                 {role === 'admin' && (
                   <div className="flex items-center gap-2 mb-2">
                     <button
@@ -359,8 +397,8 @@ export const AuthScreen: React.FC = () => {
                       onClick={() => setIsCreatingOrg(false)}
                       className={`text-xs px-2.5 py-1 rounded-md transition-colors ${
                         !isCreatingOrg
-                          ? 'bg-slate-800 text-indigo-300 font-medium'
-                          : 'text-slate-400 hover:text-slate-300'
+                          ? 'bg-slate-200 text-slate-900 font-semibold'
+                          : 'text-slate-500 hover:text-slate-800'
                       }`}
                     >
                       Join Existing Org
@@ -370,8 +408,8 @@ export const AuthScreen: React.FC = () => {
                       onClick={() => setIsCreatingOrg(true)}
                       className={`text-xs px-2.5 py-1 rounded-md transition-colors ${
                         isCreatingOrg
-                          ? 'bg-indigo-600/30 text-indigo-200 border border-indigo-500/30 font-medium'
-                          : 'text-slate-400 hover:text-slate-300'
+                          ? 'bg-[#FFE900] text-slate-950 font-bold'
+                          : 'text-slate-500 hover:text-slate-800'
                       }`}
                     >
                       + Create New Organization
@@ -380,241 +418,153 @@ export const AuthScreen: React.FC = () => {
                 )}
 
                 {isCreatingOrg ? (
-                  /* Create New Organization */
-                  <div className="p-3.5 rounded-xl bg-slate-950/70 border border-indigo-500/20 space-y-3">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Organization Name
                       </label>
                       <input
                         type="text"
                         value={newOrgName}
                         onChange={(e) => setNewOrgName(e.target.value)}
-                        placeholder="e.g. Cambridge Tech University"
-                        className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 focus:border-indigo-500 text-slate-100 text-xs outline-none"
+                        placeholder="e.g. Apex Tech University"
+                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-slate-500 bg-white"
                       />
-                      {formErrors.newOrgName && (
-                        <p className="mt-1 text-[11px] text-rose-400">{formErrors.newOrgName}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">
-                        Organization Type
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(['college', 'school', 'company'] as OrganizationType[]).map((t) => (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() => setNewOrgType(t)}
-                            className={`py-1.5 px-2 rounded-lg border text-xs capitalize text-center ${
-                              newOrgType === t
-                                ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-medium'
-                                : 'bg-slate-900 border-slate-800 text-slate-400'
-                            }`}
-                          >
-                            {t}
-                          </button>
-                        ))}
-                      </div>
                     </div>
                   </div>
                 ) : (
-                  /* Organization Invite Code */
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-medium text-slate-300">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-slate-700">
                         Organization Invite Code
                       </label>
-                      <span className="text-[11px] text-slate-400">Required to link your org</span>
+                      <span className="text-[11px] text-slate-500">Optional</span>
                     </div>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <KeyRound className="w-4 h-4" />
-                      </div>
                       <input
                         type="text"
                         value={inviteCode}
-                        onChange={(e) => {
-                          setInviteCode(e.target.value.toUpperCase());
-                          if (orgLookupStatus) setOrgLookupStatus(null);
-                        }}
+                        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                         onBlur={handleInviteCodeBlur}
                         placeholder="e.g. APEX2026, NOVA-CORP"
-                        className="w-full pl-10 pr-20 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-100 text-sm tracking-wider font-mono placeholder-slate-500 outline-none uppercase transition-all"
+                        className="w-full pl-3 pr-16 py-2 text-xs font-mono uppercase tracking-wider rounded-lg border border-slate-300 outline-none focus:border-slate-500 bg-white text-slate-900"
                       />
                       <button
                         type="button"
                         onClick={handleInviteCodeBlur}
-                        className="absolute inset-y-1 right-1 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
+                        className="absolute inset-y-1 right-1 px-2.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium"
                       >
                         Verify
                       </button>
                     </div>
-
-                    {/* Org verification status badge */}
                     {orgLookupStatus?.name && (
-                      <div className="mt-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2 text-emerald-300 text-xs">
-                        <CheckCircle2 className="w-4 h-4 shrink-0" />
-                        <span>Found: <strong>{orgLookupStatus.name}</strong> ({orgLookupStatus.type})</span>
-                      </div>
-                    )}
-
-                    {orgLookupStatus && !orgLookupStatus.name && (
-                      <p className="mt-1 text-[11px] text-amber-400">
-                        Unrecognized code. You can use one of the pre-seeded sample codes below.
+                      <p className="mt-1 text-[11px] text-emerald-600 font-medium">
+                        ✓ Connected to: {orgLookupStatus.name}
                       </p>
                     )}
-
-                    {/* Pre-seeded sample invite codes */}
-                    <div className="mt-2.5 pt-2 border-t border-slate-800/60">
-                      <p className="text-[11px] text-slate-400 mb-1.5">
-                        Sample Organizations to test:
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {DEMO_ORGS.map((org) => (
-                          <button
-                            key={org.id}
-                            type="button"
-                            onClick={() => copyToClipboard(org.inviteCode)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] text-indigo-300 font-mono transition-colors"
-                          >
-                            <span>{org.name.split(' ')[0]}:</span>
-                            <span className="font-bold">{org.inviteCode}</span>
-                            {copiedCode === org.inviteCode ? (
-                              <Check className="w-3 h-3 text-emerald-400" />
-                            ) : (
-                              <Copy className="w-3 h-3 text-slate-400" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Submit Button */}
+            {/* Submit Button (GoTo Signature Yellow CTA) */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 disabled:opacity-50 transition-all cursor-pointer mt-2"
+              className="w-full py-2.5 px-4 rounded-xl bg-[#FFE900] hover:bg-[#F5DE00] text-slate-950 font-bold text-sm shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-2 mt-4"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span>Processing...</span>
+              ) : mode === 'login' ? (
+                <>
+                  <span>Sign In to MidMeetMind</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
               ) : (
                 <>
-                  <span>{mode === 'login' ? 'Sign In to MidMeetMind' : 'Complete Registration'}</span>
+                  <span>Create Free Account</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-800"></div>
+          {/* Quick 1-Click Demo Accounts */}
+          {mode === 'login' && (
+            <div className="mt-6 pt-5 border-t border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 mb-2.5 text-center">
+                1-Click Demo Accounts (Fast Testing)
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => fillDemoAccount('admin')}
+                  className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-left text-xs text-slate-700 transition-colors"
+                >
+                  <span className="font-bold text-slate-900 block">Organizer Demo</span>
+                  <span className="text-[10px] text-slate-500 font-mono">organizer@apex.edu</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fillDemoAccount('member')}
+                  className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-left text-xs text-slate-700 transition-colors"
+                >
+                  <span className="font-bold text-slate-900 block">Participant Demo</span>
+                  <span className="text-[10px] text-slate-500 font-mono">student.rahul@apex.edu</span>
+                </button>
+              </div>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-slate-900 px-3 text-slate-500">Or continue with</span>
-            </div>
-          </div>
-
-          {/* Google Sign In */}
-          <button
-            type="button"
-            onClick={() => loginWithGoogle(inviteCode)}
-            disabled={loading}
-            className="w-full py-2.5 px-4 rounded-xl bg-slate-950/80 hover:bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-200 text-sm font-medium flex items-center justify-center gap-3 transition-all cursor-pointer"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3h3.88c2.27-2.09 3.66-5.17 3.66-9.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.1A11.996 11.996 0 0 0 12 24z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.28 14.32a7.18 7.18 0 0 1 0-4.64v-3.1H1.25a11.99 11.99 0 0 0 0 10.84l4.03-3.1z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.39 0 3.4 2.65 1.25 6.58l4.03 3.1c.95-2.83 3.6-4.93 6.72-4.93z"
-              />
-            </svg>
-            <span>Sign in with Google</span>
-          </button>
+          )}
         </div>
-
-        {/* Footer Note */}
-        <p className="mt-4 text-center text-xs text-slate-500">
-          MidMeetMind uses secure Firebase Authentication &amp; Firestore with organization isolation.
-        </p>
       </div>
 
       {/* Forgot Password Modal */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
-                <KeyRound className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-semibold text-white">Reset Password</h3>
-                <p className="text-xs text-slate-400">We'll email you a link to reset your password</p>
-              </div>
-            </div>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-slate-200">
+            <h3 className="text-base font-bold text-slate-900 mb-1">
+              Reset Your Password
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Enter your registered email address and we will send you password reset instructions.
+            </p>
 
             {forgotMessage && (
-              <div
-                className={`p-3 rounded-xl text-xs flex items-start gap-2 ${
-                  forgotMessage.isError
-                    ? 'bg-rose-500/10 border border-rose-500/20 text-rose-300'
-                    : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
-                }`}
-              >
-                {forgotMessage.isError ? (
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-                )}
-                <span>{forgotMessage.text}</span>
+              <div className={`p-3 rounded-lg text-xs mb-4 ${
+                forgotMessage.isError
+                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              }`}>
+                {forgotMessage.text}
               </div>
             )}
 
-            <form onSubmit={handleForgotPassword} className="space-y-3">
+            <form onSubmit={handleForgotPassword} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Registered Email Address
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Email Address
                 </label>
                 <input
                   type="email"
+                  required
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
-                  placeholder="name@college.edu"
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:border-indigo-500 outline-none"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:border-slate-500 bg-white"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowForgotModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-slate-200"
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={forgotLoading}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-md shadow-indigo-600/30"
+                  className="px-4 py-1.5 rounded-lg bg-[#FFE900] text-slate-950 font-bold text-xs hover:bg-[#F5DE00] transition-colors"
                 >
                   {forgotLoading ? 'Sending...' : 'Send Reset Link'}
                 </button>
