@@ -1,0 +1,6 @@
+{
+  "name": "Project Studio",
+  "description": "Custom step-by-step collaborative application builder.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

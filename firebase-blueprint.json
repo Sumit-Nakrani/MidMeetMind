@@ -1,0 +1,128 @@
+{
+  "entities": {
+    "organization": {
+      "title": "Organization",
+      "description": "Educational or corporate entity grouping users and meetings",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Organization name" },
+        "type": { "type": "string", "enum": ["college", "school", "company"], "description": "Type of organization" },
+        "inviteCode": { "type": "string", "description": "Unique code for members to join" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type", "inviteCode"]
+    },
+    "user": {
+      "title": "User",
+      "description": "Member or Admin user of an organization",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name" },
+        "email": { "type": "string", "format": "email", "description": "User email address" },
+        "organizationId": { "type": "string", "description": "Reference to organizations document" },
+        "role": { "type": "string", "enum": ["admin", "member"], "description": "User role in organization" },
+        "notificationPrefs": {
+          "type": "object",
+          "description": "Preferences for summary emails and reminders"
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "organizationId", "role"]
+    },
+    "meeting": {
+      "title": "Meeting",
+      "description": "Scheduled or completed meeting in an organization",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "organizerId": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "scheduledAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["scheduled", "in_progress", "processing", "completed"] },
+        "recordingUrl": { "type": "string" },
+        "agenda": { "type": "string" },
+        "participants": { "type": "array" },
+        "shareToken": { "type": "string" }
+      },
+      "required": ["title", "organizerId", "organizationId", "scheduledAt", "status"]
+    },
+    "transcript": {
+      "title": "Transcript",
+      "description": "Raw speech-to-text transcript of a meeting",
+      "type": "object",
+      "properties": {
+        "meetingId": { "type": "string" },
+        "rawText": { "type": "string" }
+      },
+      "required": ["meetingId", "rawText"]
+    },
+    "summary": {
+      "title": "Summary",
+      "description": "AI-generated structured meeting summary, key points and decisions",
+      "type": "object",
+      "properties": {
+        "meetingId": { "type": "string" },
+        "summaryText": { "type": "string" },
+        "keyPoints": { "type": "array" },
+        "decisions": { "type": "array" }
+      },
+      "required": ["meetingId", "summaryText"]
+    },
+    "task": {
+      "title": "Task",
+      "description": "Action item extracted from meeting assigned to a user",
+      "type": "object",
+      "properties": {
+        "meetingId": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "description": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "overdue"] }
+      },
+      "required": ["meetingId", "assignedTo", "description", "dueDate", "status"]
+    },
+    "notification": {
+      "title": "Notification",
+      "description": "Email or in-app reminder for tasks and summaries",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["summary", "reminder"] },
+        "relatedMeetingId": { "type": "string" },
+        "relatedTaskId": { "type": "string" },
+        "sentAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type"]
+    }
+  },
+  "firestore": {
+    "/organizations/{orgId}": {
+      "schema": "organization",
+      "description": "Organizations document"
+    },
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profile document"
+    },
+    "/meetings/{meetingId}": {
+      "schema": "meeting",
+      "description": "Meetings collection"
+    },
+    "/transcripts/{transcriptId}": {
+      "schema": "transcript",
+      "description": "Transcripts collection"
+    },
+    "/summaries/{summaryId}": {
+      "schema": "summary",
+      "description": "Meeting summaries collection"
+    },
+    "/tasks/{taskId}": {
+      "schema": "task",
+      "description": "Tasks collection with assignedTo and status index"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "notification",
+      "description": "Notifications log collection"
+    }
+  }
+}

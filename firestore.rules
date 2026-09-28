@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // Organizations
+    match /organizations/{orgId} {
+      allow read: if true; // Allows inviteCode verification before login/signup
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+    }
+
+    // Meetings
+    match /meetings/{meetingId} {
+      allow read: if isAuthenticated() || (resource.data.shareToken != null);
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // Transcripts
+    match /transcripts/{transcriptId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Summaries
+    match /summaries/{summaryId} {
+      allow read: if true; // Can be viewed with shareToken or auth
+      allow write: if isAuthenticated();
+    }
+
+    // Tasks
+    match /tasks/{taskId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}
