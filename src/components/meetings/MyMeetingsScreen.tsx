@@ -31,6 +31,7 @@ interface MyMeetingsScreenProps {
   onViewSummary?: (meeting: Meeting) => void;
   onViewTranscript?: (meeting: Meeting) => void;
   onOpenMeetingDetail?: (meeting: Meeting) => void;
+  onOpenProcessingStatus?: (meeting: Meeting) => void;
 }
 
 export const MyMeetingsScreen: React.FC<MyMeetingsScreenProps> = ({
@@ -39,7 +40,8 @@ export const MyMeetingsScreen: React.FC<MyMeetingsScreenProps> = ({
   onStartMeeting,
   onViewSummary,
   onViewTranscript,
-  onOpenMeetingDetail
+  onOpenMeetingDetail,
+  onOpenProcessingStatus
 }) => {
   const { profile } = useAuth();
 
@@ -561,10 +563,15 @@ export const MyMeetingsScreen: React.FC<MyMeetingsScreenProps> = ({
                   )}
 
                   {isProcessing && (
-                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
-                      <span>Generating AI Summary...</span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onOpenProcessingStatus && onOpenProcessingStatus(meeting)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                      title="Click to view live AI pipeline processing screen"
+                    >
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                      <span>Live AI Pipeline...</span>
+                    </button>
                   )}
 
                   {isCompleted && (

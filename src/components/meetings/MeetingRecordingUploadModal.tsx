@@ -13,7 +13,8 @@ import {
   Sparkles,
   ArrowRight,
   RefreshCw,
-  HardDrive
+  HardDrive,
+  Cpu
 } from 'lucide-react';
 import { Meeting } from '../../types/index.ts';
 import { triggerMeetingProcessing, updateMeetingDetails } from '../../lib/meetingService.ts';
@@ -26,6 +27,7 @@ interface MeetingRecordingUploadModalProps {
   initialMeeting?: Meeting | null;
   onProcessingComplete?: (meetingId: string) => void;
   onOpenSummary?: (meeting: Meeting) => void;
+  onOpenProcessingStatus?: (meeting: Meeting) => void;
 }
 
 export const MeetingRecordingUploadModal: React.FC<MeetingRecordingUploadModalProps> = ({
@@ -34,7 +36,8 @@ export const MeetingRecordingUploadModal: React.FC<MeetingRecordingUploadModalPr
   meetings,
   initialMeeting,
   onProcessingComplete,
-  onOpenSummary
+  onOpenSummary,
+  onOpenProcessingStatus
 }) => {
   // Selected meeting
   const [selectedMeetingId, setSelectedMeetingId] = useState<string>(
@@ -287,6 +290,19 @@ export const MeetingRecordingUploadModal: React.FC<MeetingRecordingUploadModalPr
                   >
                     <FileText className="w-3.5 h-3.5 text-[#FFE900]" />
                     <span>View Generated Summary &amp; Tasks</span>
+                  </button>
+                )}
+                {processedMeeting && onOpenProcessingStatus && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleCloseModal();
+                      onOpenProcessingStatus(processedMeeting);
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    <Cpu className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>View Pipeline Status</span>
                   </button>
                 )}
                 <button

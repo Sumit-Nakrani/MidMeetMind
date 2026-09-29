@@ -43,6 +43,10 @@ export interface MeetingParticipant {
   email?: string;
   attended?: boolean;
   role?: string;
+  isOnline?: boolean;
+  isCameraOn?: boolean;
+  isMicOn?: boolean;
+  lastSeen?: number;
 }
 
 export interface Meeting {
@@ -57,6 +61,11 @@ export interface Meeting {
   participants: MeetingParticipant[];
   shareToken?: string | null;
   createdAt?: string;
+  liveCaption?: {
+    speaker: string;
+    text: string;
+    timestamp: number;
+  };
 }
 
 export interface TranscriptSnippet {
@@ -85,6 +94,11 @@ export interface Summary {
   durationMinutes?: number;
   generatedAt?: string;
   createdAt?: string;
+  approved?: boolean;
+  approvedAt?: string;
+  approvedBy?: string;
+  lastEmailedAt?: string;
+  emailRecipientCount?: number;
 }
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';

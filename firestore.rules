@@ -22,9 +22,12 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Meetings
+    // Meetings and signaling
     match /meetings/{meetingId} {
       allow read, write: if true;
+      match /{allChildren=**} {
+        allow read, write: if true;
+      }
     }
 
     // Transcripts

@@ -39,6 +39,7 @@ interface MeetingDetailModalProps {
   onMeetingUpdated?: (updatedMeeting: Meeting) => void;
   onMeetingCancelled?: (meetingId: string) => void;
   onOpenUploadRecording?: (meeting: Meeting) => void;
+  onOpenProcessingStatus?: (meeting: Meeting) => void;
 }
 
 export const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
@@ -51,7 +52,8 @@ export const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
   onViewTranscript,
   onMeetingUpdated,
   onMeetingCancelled,
-  onOpenUploadRecording
+  onOpenUploadRecording,
+  onOpenProcessingStatus
 }) => {
   const { profile } = useAuth();
 
@@ -180,7 +182,7 @@ export const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
   };
 
   const copyMeetingLink = () => {
-    const link = `${window.location.origin}/meet/${meeting.id}`;
+    const link = `${window.location.origin}/?meet=${encodeURIComponent(meeting.id)}`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
@@ -696,6 +698,18 @@ export const MeetingDetailModal: React.FC<MeetingDetailModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2 self-end sm:self-center">
+              {/* If processing, show direct View Live AI Status button */}
+              {isProcessing && onOpenProcessingStatus && (
+                <button
+                  type="button"
+                  onClick={() => onOpenProcessingStatus(meeting)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#FFE900] hover:bg-[#F5DE00] text-slate-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                >
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                  <span>View Live Pipeline</span>
+                </button>
+              )}
+
               {/* View Summary Button */}
               <button
                 type="button"

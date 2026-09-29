@@ -48,15 +48,14 @@ export async function transcribeAudioWithGemini(
 
     const data = await res.json();
     return {
-      text: data.transcription || 'No audible speech detected.',
+      text: data.transcription || '',
       model: data.modelUsed || 'gemini-3.5-transcribe',
     };
   } catch (err: any) {
-    console.warn('Gemini Audio Transcription fallback:', err);
-    // Intelligent contextual fallback for prototype/offline resilience
+    console.warn('Gemini Audio Transcription error:', err);
     return {
-      text: `[Audio Transcribed]: "We reviewed the key milestones for the upcoming quarter, finalized the sprint deliverables, and confirmed all assigned tasks."`,
-      model: 'gemini-3.5-transcribe (resilient)',
+      text: '',
+      model: 'gemini-3.5-transcribe',
     };
   }
 }
@@ -122,3 +121,39 @@ export async function searchWithGoogle(
     };
   }
 }
+
+/**
+ * Real AI Meeting Summarizer with gemini-2.5-flash
+ * Extracts real overview, bullet points, decisions, and action items from actual spoken transcript
+ */
+export async function summarizeMeetingWithGemini(params: {
+  meetingTitle: string;
+  transcript: string;
+  durationMinutes?: number;
+}): Promise<{
+  title: string;
+  overview: string;
+  keyPoints: string[];
+  decisions: string[];
+  actionItems: Array<{
+    description: string;
+    assignedTo: string;
+    priority: 'urgent' | 'high' | 'normal' | 'low';
+    dueDate: string;
+  }>;
+}> {
+  const res = await fetch('/api/gemini/summarize-meeting', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `Summarizer server error: ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.summary;
+}
+

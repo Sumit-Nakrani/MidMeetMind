@@ -47,6 +47,7 @@ import { AudioTranscriberModal } from '../audio/AudioTranscriberModal.tsx';
 import { MeetingDetailModal } from '../meetings/MeetingDetailModal.tsx';
 import { MeetingTranscriptModal } from '../meetings/MeetingTranscriptModal.tsx';
 import { MeetingRecordingUploadModal } from '../meetings/MeetingRecordingUploadModal.tsx';
+import { ProcessingStatusScreen } from '../meetings/ProcessingStatusScreen.tsx';
 
 export const HomeScreen: React.FC = () => {
   const { profile, organization, logout, reloadUser } = useAuth();
@@ -69,6 +70,7 @@ export const HomeScreen: React.FC = () => {
   const [transcriptMeeting, setTranscriptMeeting] = useState<Meeting | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadTargetMeeting, setUploadTargetMeeting] = useState<Meeting | null>(null);
+  const [processingMeeting, setProcessingMeeting] = useState<Meeting | null>(null);
 
   // Quick join input
   const [quickJoinId, setQuickJoinId] = useState('');
@@ -467,15 +469,15 @@ export const HomeScreen: React.FC = () => {
         {/* ======================================================== */}
         {/* QUICK ACTION BAR (Instant Meeting, Schedule, Join) */}
         {/* ======================================================== */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col lg:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap sm:flex-nowrap">
             {/* Start Instant Meeting */}
             <button
               type="button"
               onClick={handleStartInstantMeeting}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFE900] hover:bg-[#F5DE00] text-slate-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFE900] hover:bg-[#F5DE00] text-slate-950 font-black text-xs shadow-xs transition-colors cursor-pointer"
             >
-              <Play className="w-3.5 h-3.5 fill-slate-950" />
+              <Video className="w-4 h-4 fill-slate-950" />
               <span>Start Instant Meeting</span>
             </button>
 
@@ -516,19 +518,22 @@ export const HomeScreen: React.FC = () => {
           </div>
 
           {/* Quick Join by ID Form */}
-          <form onSubmit={handleJoinById} className="flex gap-2 w-full sm:w-auto">
-            <input
-              type="text"
-              value={quickJoinId}
-              onChange={(e) => setQuickJoinId(e.target.value)}
-              placeholder="Enter Meeting ID to join..."
-              className="flex-1 sm:w-60 px-3 py-2 text-xs rounded-xl border border-slate-300 outline-none focus:border-slate-500 bg-slate-50 text-slate-900"
-            />
+          <form onSubmit={handleJoinById} className="flex items-center gap-2 w-full lg:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <input
+                type="text"
+                value={quickJoinId}
+                onChange={(e) => setQuickJoinId(e.target.value)}
+                placeholder="Enter Meeting ID to join..."
+                className="w-full pl-3 pr-3 py-2 text-xs rounded-xl border border-slate-300 outline-none focus:border-slate-500 bg-slate-50 text-slate-900 font-medium"
+              />
+            </div>
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
             >
-              Join
+              <Play className="w-3 h-3 fill-white" />
+              <span>Join Meeting</span>
             </button>
           </form>
         </div>
@@ -546,6 +551,7 @@ export const HomeScreen: React.FC = () => {
                 onStartMeeting={(m) => setActiveLiveMeeting(m)}
                 onViewAll={() => setActiveTab('meetings')}
                 onOpenMeetingDetail={(m) => setDetailMeeting(m)}
+                onOpenProcessingStatus={(m) => setProcessingMeeting(m)}
               />
 
               <RecentSummariesFeed
@@ -572,6 +578,7 @@ export const HomeScreen: React.FC = () => {
             onViewSummary={(m) => handleOpenMeetingSummary(m)}
             onViewTranscript={(m) => setTranscriptMeeting(m)}
             onOpenMeetingDetail={(m) => setDetailMeeting(m)}
+            onOpenProcessingStatus={(m) => setProcessingMeeting(m)}
           />
         )}
 
@@ -631,7 +638,12 @@ export const HomeScreen: React.FC = () => {
           meeting={activeLiveMeeting}
           onClose={() => setActiveLiveMeeting(null)}
           onMeetingCompleted={(id) => {
-            setMeetings(prev => prev.map(m => m.id === id ? { ...m, status: 'completed' } : m));
+            const finished = meetings.find(m => m.id === id) || activeLiveMeeting;
+            setMeetings(prev => prev.map(m => m.id === id ? { ...m, status: 'processing' } : m));
+            setActiveLiveMeeting(null);
+            if (finished) {
+              setProcessingMeeting({ ...finished, status: 'processing' });
+            }
           }}
         />
       )}
@@ -642,6 +654,10 @@ export const HomeScreen: React.FC = () => {
           summary={selectedSummary.summary}
           meeting={selectedSummary.meeting}
           onClose={() => setSelectedSummary(null)}
+          onSummaryUpdated={(updated) => {
+            setSummaries(prev => prev.map(s => s.summary.id === updated.id ? { ...s, summary: updated } : s));
+            setSelectedSummary(prev => prev ? { ...prev, summary: updated } : null);
+          }}
           onTaskToggle={(taskId) => {
             setTasks(prev => prev.map(t => t.id === taskId ? {
               ...t,
@@ -679,6 +695,10 @@ export const HomeScreen: React.FC = () => {
             setDetailMeeting(null);
             setUploadTargetMeeting(m);
             setIsUploadModalOpen(true);
+          }}
+          onOpenProcessingStatus={(m) => {
+            setDetailMeeting(null);
+            setProcessingMeeting(m);
           }}
           onMeetingUpdated={(updated) => {
             setMeetings(prev => prev.map(m => m.id === updated.id ? updated : m));
@@ -724,7 +744,37 @@ export const HomeScreen: React.FC = () => {
         onOpenSummary={(m) => {
           handleOpenMeetingSummary(m);
         }}
+        onOpenProcessingStatus={(m) => {
+          setIsUploadModalOpen(false);
+          setProcessingMeeting(m);
+        }}
       />
+
+      {/* Screen 8: Processing Status Screen */}
+      {processingMeeting && (
+        <ProcessingStatusScreen
+          isOpen={!!processingMeeting}
+          meeting={processingMeeting}
+          onClose={() => setProcessingMeeting(null)}
+          onComplete={async (meetingId) => {
+            const orgId = organization?.id || 'org-apex-college';
+            const [meets, sums, tsks] = await Promise.all([
+              fetchMeetingsByOrg(orgId),
+              fetchRecentSummaries(),
+              fetchTasks(orgId, profile?.id)
+            ]);
+            setMeetings(meets);
+            setSummaries(sums);
+            setTasks(tsks);
+          }}
+          onViewSummary={(m) => {
+            handleOpenMeetingSummary(m);
+          }}
+          onViewTranscript={(m) => {
+            setTranscriptMeeting(m);
+          }}
+        />
+      )}
     </div>
   );
 };

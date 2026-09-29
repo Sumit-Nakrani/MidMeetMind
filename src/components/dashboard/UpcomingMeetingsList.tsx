@@ -11,7 +11,9 @@ import {
   Check,
   MoreVertical,
   Search,
-  X
+  X,
+  Loader2,
+  Cpu
 } from 'lucide-react';
 import { Meeting } from '../../types/index.ts';
 
@@ -21,6 +23,7 @@ interface UpcomingMeetingsListProps {
   onStartMeeting?: (meeting: Meeting) => void;
   onViewAll?: () => void;
   onOpenMeetingDetail?: (meeting: Meeting) => void;
+  onOpenProcessingStatus?: (meeting: Meeting) => void;
 }
 
 export const UpcomingMeetingsList: React.FC<UpcomingMeetingsListProps> = ({
@@ -28,7 +31,8 @@ export const UpcomingMeetingsList: React.FC<UpcomingMeetingsListProps> = ({
   onOpenScheduleModal,
   onStartMeeting,
   onViewAll,
-  onOpenMeetingDetail
+  onOpenMeetingDetail,
+  onOpenProcessingStatus
 }) => {
   const [filter, setFilter] = useState<'all' | 'today' | 'upcoming'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,7 +78,7 @@ export const UpcomingMeetingsList: React.FC<UpcomingMeetingsListProps> = ({
   });
 
   const copyMeetingLink = (m: Meeting) => {
-    const link = `${window.location.origin}/meet/${m.id}`;
+    const link = `${window.location.origin}/?meet=${encodeURIComponent(m.id)}`;
     navigator.clipboard.writeText(link);
     setCopiedId(m.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -260,6 +264,17 @@ export const UpcomingMeetingsList: React.FC<UpcomingMeetingsListProps> = ({
                           IN PROGRESS
                         </span>
                       )}
+                      {meeting.status === 'processing' && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenProcessingStatus && onOpenProcessingStatus(meeting)}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 transition-colors cursor-pointer"
+                          title="Click to view live AI pipeline processing status"
+                        >
+                          <Loader2 className="w-3 h-3 animate-spin text-amber-700" />
+                          <span>AI PROCESSING</span>
+                        </button>
+                      )}
                     </div>
 
                     {/* Metadata line with organizer name and typographic separators */}
@@ -307,14 +322,26 @@ export const UpcomingMeetingsList: React.FC<UpcomingMeetingsListProps> = ({
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => onStartMeeting && onStartMeeting(meeting)}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FFE900] hover:bg-[#F5DE00] text-slate-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-slate-950" />
-                    <span>{isLive ? 'Join Meeting' : 'Start Room'}</span>
-                  </button>
+                  {meeting.status === 'processing' ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenProcessingStatus && onOpenProcessingStatus(meeting)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                      title="View live AI pipeline progress"
+                    >
+                      <Cpu className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>View AI Status</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onStartMeeting && onStartMeeting(meeting)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#FFE900] hover:bg-[#F5DE00] text-slate-950 font-extrabold text-xs shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-slate-950" />
+                      <span>{isLive ? 'Join Meeting' : 'Start Meeting'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );
